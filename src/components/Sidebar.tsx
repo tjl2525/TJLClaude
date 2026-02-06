@@ -7,6 +7,7 @@ import {
   Kanban,
   Users,
   Plus,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +62,18 @@ export default function Sidebar({ boards, onCreateBoard }: SidebarProps) {
           >
             <Users className="w-4 h-4" />
             Contacts
+          </Link>
+          <Link
+            href="/training"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+              pathname?.startsWith("/training")
+                ? "bg-amber-600 text-white"
+                : "text-amber-400 hover:bg-gray-800 hover:text-amber-300"
+            )}
+          >
+            <Clock className="w-4 h-4" />
+            Clock Training
           </Link>
         </div>
 
