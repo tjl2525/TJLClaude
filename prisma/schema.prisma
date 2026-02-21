@@ -97,3 +97,17 @@ model Activity {
   @@index([cardId])
   @@index([contactId])
 }
+
+// ============================================
+// FORMATION TRAINER
+// ============================================
+
+model Formation {
+  id        String   @id @default(cuid())
+  name      String   // correct name of the formation
+  imageUrl  String   // path to the image file
+  category  String?  // e.g. "Offense", "Defense", "Special Teams"
+  notes     String?  // optional coach notes / hints
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

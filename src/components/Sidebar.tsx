@@ -8,6 +8,7 @@ import {
   Users,
   Plus,
   Clock,
+  Layout,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +75,18 @@ export default function Sidebar({ boards, onCreateBoard }: SidebarProps) {
           >
             <Clock className="w-4 h-4" />
             Clock Training
+          </Link>
+          <Link
+            href="/formations"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+              pathname?.startsWith("/formations")
+                ? "bg-green-600 text-white"
+                : "text-green-400 hover:bg-gray-800 hover:text-green-300"
+            )}
+          >
+            <Layout className="w-4 h-4" />
+            Formation Trainer
           </Link>
         </div>
 
