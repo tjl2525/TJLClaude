@@ -327,7 +327,7 @@ export default function FormationsLibrary() {
     setLoading(true);
     const res = await fetch("/api/formations");
     const data = await res.json();
-    setFormations(data);
+    setFormations(Array.isArray(data) ? data : []);
     setLoading(false);
   }
 
