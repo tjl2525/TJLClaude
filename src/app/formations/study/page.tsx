@@ -50,9 +50,10 @@ export default function StudyMode() {
   useEffect(() => {
     fetch("/api/formations")
       .then((r) => r.json())
-      .then((data: Formation[]) => {
-        setAllFormations(data);
-        setDeck(shuffle(data));
+      .then((data: unknown) => {
+        const formations = Array.isArray(data) ? (data as Formation[]) : [];
+        setAllFormations(formations);
+        setDeck(shuffle(formations));
         setLoading(false);
       });
   }, []);
