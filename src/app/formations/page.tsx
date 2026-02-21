@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   Plus,
   Trash2,
   GraduationCap,
-  Upload,
   X,
   BookOpen,
   Tag,
@@ -29,43 +28,38 @@ function AddFormationModal({ onClose, onSaved }: { onClose: () => void; onSaved:
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [notes, setNotes] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [availableImages, setAvailableImages] = useState<string[]>([]);
+  const [loadingImages, setLoadingImages] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleFile(f: File) {
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const f = e.dataTransfer.files[0];
-    if (f && f.type.startsWith("image/")) handleFile(f);
-  }
+  useEffect(() => {
+    fetch("/api/formations/images")
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        setAvailableImages(Array.isArray(data) ? (data as string[]) : []);
+        setLoadingImages(false);
+      });
+  }, []);
 
   async function handleSave() {
     if (!name.trim()) { setError("Formation name is required."); return; }
-    if (!file) { setError("Please select an image."); return; }
+    if (!selectedImage) { setError("Please select an image."); return; }
     setSaving(true);
     setError("");
     try {
-      // 1. Upload image
-      const fd = new FormData();
-      fd.append("file", file);
-      const upRes = await fetch("/api/formations/upload", { method: "POST", body: fd });
-      if (!upRes.ok) { const d = await upRes.json(); throw new Error(d.error || "Upload failed"); }
-      const { imageUrl } = await upRes.json();
-
-      // 2. Save formation record
-      const saveRes = await fetch("/api/formations", {
+      const res = await fetch("/api/formations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), imageUrl, category: category.trim(), notes: notes.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          imageUrl: selectedImage,
+          category: category.trim() || null,
+          notes: notes.trim() || null,
+        }),
       });
-      if (!saveRes.ok) { const d = await saveRes.json(); throw new Error(d.error || "Save failed"); }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Save failed"); }
       onSaved();
       onClose();
     } catch (err) {
@@ -77,50 +71,53 @@ function AddFormationModal({ onClose, onSaved }: { onClose: () => void; onSaved:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700 flex-shrink-0">
           <h2 className="text-lg font-bold text-white">Add New Formation</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          {/* Image Upload */}
+        <div className="p-6 space-y-5 overflow-y-auto">
+          {/* Image Picker */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Formation Image <span className="text-red-400">*</span>
+              Select Image <span className="text-red-400">*</span>
             </label>
-            {preview ? (
-              <div className="relative rounded-lg overflow-hidden border border-slate-600 bg-slate-800">
-                <Image src={preview} alt="preview" width={480} height={200} className="w-full object-contain max-h-48" />
-                <button
-                  onClick={() => { setFile(null); setPreview(null); }}
-                  className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+            {loadingImages ? (
+              <p className="text-sm text-slate-500 py-4 text-center">Loading available images…</p>
+            ) : availableImages.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4 text-center">
+                All extracted images are already in the library.
+              </p>
             ) : (
-              <div
-                onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-slate-600 hover:border-green-500 rounded-lg p-8 text-center cursor-pointer transition-colors"
-              >
-                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">Click or drag & drop an image</p>
-                <p className="text-xs text-slate-500 mt-1">JPG, PNG, GIF, WEBP, SVG</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-60 overflow-y-auto pr-1">
+                {availableImages.map((url) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => setSelectedImage(url)}
+                    className={`relative rounded-lg overflow-hidden border-2 transition-colors bg-slate-800 aspect-[3/2] ${
+                      selectedImage === url
+                        ? "border-green-500"
+                        : "border-slate-600 hover:border-slate-400"
+                    }`}
+                  >
+                    <Image src={url} alt={url} fill className="object-contain p-1" />
+                    {selectedImage === url && (
+                      <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                        <Check className="w-5 h-5 text-green-400 drop-shadow" />
+                      </div>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-            />
+            {selectedImage && (
+              <p className="text-xs text-green-400 mt-1 truncate">Selected: {selectedImage}</p>
+            )}
           </div>
 
           {/* Name */}
@@ -131,6 +128,7 @@ function AddFormationModal({ onClose, onSaved }: { onClose: () => void; onSaved:
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
               placeholder="e.g. 2x2, 3x1 Trips, Empty, Spread"
               className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-green-500 text-sm"
             />
@@ -167,7 +165,7 @@ function AddFormationModal({ onClose, onSaved }: { onClose: () => void; onSaved:
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-700">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-700 flex-shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
@@ -176,7 +174,7 @@ function AddFormationModal({ onClose, onSaved }: { onClose: () => void; onSaved:
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !selectedImage || !name.trim()}
             className="px-5 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
           >
             {saving ? "Saving..." : "Save Formation"}
