@@ -8,6 +8,7 @@ import {
   Users,
   Plus,
   Clock,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +63,18 @@ export default function Sidebar({ boards, onCreateBoard }: SidebarProps) {
           >
             <Users className="w-4 h-4" />
             Contacts
+          </Link>
+          <Link
+            href="/schools"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+              pathname === "/schools"
+                ? "bg-green-600 text-white"
+                : "text-green-400 hover:bg-gray-800 hover:text-green-300"
+            )}
+          >
+            <Trophy className="w-4 h-4" />
+            Stadium Tracker
           </Link>
           <Link
             href="/training"
