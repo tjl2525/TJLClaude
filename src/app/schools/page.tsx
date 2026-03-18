@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
 import {
-  Search,
   Check,
   Plus,
   X,
@@ -17,9 +17,17 @@ import {
   SCHOOLS,
   DIVISIONS,
   DIV_COLORS,
-  getUniqueStates,
 } from "@/data/schoolsData";
 import type { School } from "@/data/schoolsData";
+
+const SchoolsMap = dynamic(() => import("@/components/SchoolsMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[600px] w-full rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+      Loading map...
+    </div>
+  ),
+});
 
 type Tab = "schools" | "visited" | "trips" | "assistant";
 
@@ -49,29 +57,23 @@ export default function SchoolsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("schools");
   const [visited, setVisited] = useState<number[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [searchText, setSearchText] = useState("");
-  const [filterDiv, setFilterDiv] = useState("All");
-  const [filterState, setFilterState] = useState("All");
+  const [visibleDivisions, setVisibleDivisions] = useState<Set<string>>(
+    () => new Set(["Power 4", "Group of 5", "FCS"])
+  );
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([]);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [tripForm, setTripForm] = useState(emptyTripForm);
   const [showTripForm, setShowTripForm] = useState(false);
 
-  const states = useMemo(() => getUniqueStates(), []);
-
-  const filtered = useMemo(() => {
-    return SCHOOLS.filter((s) => {
-      const matchDiv = filterDiv === "All" || s.div === filterDiv;
-      const matchState = filterState === "All" || s.state === filterState;
-      const matchSearch =
-        searchText === "" ||
-        s.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        s.city.toLowerCase().includes(searchText.toLowerCase()) ||
-        s.conf.toLowerCase().includes(searchText.toLowerCase());
-      return matchDiv && matchState && matchSearch;
+  const toggleDivision = (div: string) => {
+    setVisibleDivisions((prev) => {
+      const next = new Set(prev);
+      if (next.has(div)) next.delete(div);
+      else next.add(div);
+      return next;
     });
-  }, [filterDiv, filterState, searchText]);
+  };
 
   const toggleVisited = (id: number) => {
     setVisited((v) =>
@@ -85,16 +87,6 @@ export default function SchoolsPage() {
   visitedSchools.forEach((s) => {
     visitedByDiv[s.div] = (visitedByDiv[s.div] || 0) + 1;
   });
-
-  const divCounts = useMemo(() => {
-    return DIVISIONS.slice(1).reduce(
-      (acc, d) => {
-        acc[d] = SCHOOLS.filter((s) => s.div === d).length;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-  }, []);
 
   const sendAI = async () => {
     if (!aiInput.trim()) return;
@@ -188,72 +180,42 @@ Help the user plan stadium visits. When they mention a geographic area or trip, 
           </div>
         </div>
 
-        {/* All Schools Tab */}
+        {/* All Schools Tab — Interactive Map */}
         {activeTab === "schools" && (
           <>
-            {/* Division Stats */}
-            <div className="flex gap-2 mb-5 flex-wrap">
-              {Object.entries(divCounts).map(([div, count]) => (
-                <div
-                  key={div}
-                  className="bg-white rounded-xl shadow-sm border px-4 py-2.5 flex-1 min-w-[100px]"
-                >
-                  <div className="text-xl font-bold text-gray-800">
-                    {count}
-                  </div>
-                  <div className="text-xs text-gray-500">{div}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Filters */}
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="Search by name, city, conference..."
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <select
-                value={filterDiv}
-                onChange={(e) => setFilterDiv(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {DIVISIONS.map((d) => (
-                  <option key={d}>{d}</option>
-                ))}
-              </select>
-              <select
-                value={filterState}
-                onChange={(e) => setFilterState(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {states.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
+            {/* Division filter toggles */}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {(DIVISIONS.slice(1) as readonly string[]).map((div) => {
+                const active = visibleDivisions.has(div);
+                const colors = DIV_COLORS[div];
+                return (
+                  <button
+                    key={div}
+                    onClick={() => toggleDivision(div)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors",
+                      active && colors
+                        ? `${colors.bg} ${colors.text} border-current`
+                        : "bg-gray-100 text-gray-400 border-gray-200"
+                    )}
+                  >
+                    {active ? "\u2713 " : ""}{div}
+                  </button>
+                );
+              })}
             </div>
 
             <p className="text-xs text-gray-400 mb-3">
-              Showing {filtered.length} of {SCHOOLS.length} schools — click to
-              toggle visited
+              Showing {SCHOOLS.filter((s) => visibleDivisions.has(s.div)).length} of{" "}
+              {SCHOOLS.length} schools — click a marker for details
             </p>
 
-            {/* School List */}
-            <div className="flex flex-col gap-1">
-              {filtered.map((s) => (
-                <SchoolRow
-                  key={s.id}
-                  school={s}
-                  isVisited={visited.includes(s.id)}
-                  onClick={() => toggleVisited(s.id)}
-                />
-              ))}
-            </div>
+            <SchoolsMap
+              schools={SCHOOLS}
+              visited={visited}
+              visibleDivisions={visibleDivisions}
+              onToggleVisited={toggleVisited}
+            />
           </>
         )}
 
