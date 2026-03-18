@@ -28,7 +28,24 @@ export async function POST(request: Request) {
       }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+
+    if (!text) {
+      return NextResponse.json(
+        { error: "Empty response from Anthropic API" },
+        { status: 502 }
+      );
+    }
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON from Anthropic API" },
+        { status: 502 }
+      );
+    }
 
     if (!response.ok) {
       return NextResponse.json(
@@ -40,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json(data);
   } catch (e) {
     return NextResponse.json(
-      { error: "Failed to reach Anthropic API" },
+      { error: e instanceof Error ? e.message : "Failed to reach Anthropic API" },
       { status: 502 }
     );
   }
